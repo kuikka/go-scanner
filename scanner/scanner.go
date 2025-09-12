@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"flag"
 	"fmt"
 	"time"
 
@@ -11,8 +12,6 @@ import (
 
 	"tinygo.org/x/bluetooth"
 )
-
-var adapter = bluetooth.DefaultAdapter
 
 type DataPoint struct {
 	Bucket             string    `lp:"measurement"`
@@ -25,18 +24,13 @@ type DataPoint struct {
 	Time               time.Time `lp:"timestamp"`
 }
 
-type Sensor struct {
-	Location   string
-	MacAddress [6]byte
-}
-
-var Sensors = []Sensor {
-	{"Family room", [6]byte{0xE0, 0xE7, 0xCD, 0x59, 0x5D, 0x74}},
-	{"Office", [6]byte{0xD4, 0x7A, 0xAA, 0xC9, 0x5D, 0xD6}},
-	{"Master bedroom", [6]byte{0xE6, 0x99, 0x94, 0x26, 0xC5, 0xC3}},
-	{"Garage", [6]byte{0xD7, 0x44, 0x78, 0x0F, 0xA5, 0x65}},
-	{"Kitchen", [6]byte{0xF6, 0x8C, 0xF2, 0x8D, 0x6E, 0xA3}},
-}
+// var Sensors = []Sensor{
+// 	{"Family room", [6]byte{0xE0, 0xE7, 0xCD, 0x59, 0x5D, 0x74}},
+// 	{"Office", [6]byte{0xD4, 0x7A, 0xAA, 0xC9, 0x5D, 0xD6}},
+// 	{"Master bedroom", [6]byte{0xE6, 0x99, 0x94, 0x26, 0xC5, 0xC3}},
+// 	{"Garage", [6]byte{0xD7, 0x44, 0x78, 0x0F, 0xA5, 0x65}},
+// 	{"Kitchen", [6]byte{0xF6, 0x8C, 0xF2, 0x8D, 0x6E, 0xA3}},
+// }
 
 func write(client *influxdb3.Client, point DataPoint) {
 	data := []any{point}
@@ -44,7 +38,25 @@ func write(client *influxdb3.Client, point DataPoint) {
 	must("write data point", err)
 }
 
+var adapter = bluetooth.DefaultAdapter
+
+var Sensors = []Sensor{}
+
+var configFile = flag.String("c", "", "config file")
+var verbose = flag.Bool("verbose", false, "verbose")
+
 func main() {
+
+	flag.Parse()
+
+	config, err := LoadJsonConfig(*configFile)
+	if err != nil {
+		panic(err)
+	}
+	Sensors = config.Sensors
+
+	fmt.Printf("Config: %+v\n", config)
+
 	// Instantiate the client.
 	client, err := influxdb3.New(influxdb3.ClientConfig{
 		Host:         "http://influxdb:30115/",
@@ -120,20 +132,19 @@ func parse_ruuvi_data(client *influxdb3.Client, data []byte) {
 		var AtmospherePressure = (float64(rawData.AtmospherePressure) + float64(50000)) / 1000.0
 
 		var BatteryVoltage = (float64(rawData.PowerInfo>>5) + float64(1600)) / 1000.0
-		// var TxPower = -40 + 2*(float64(rawData.PowerInfo&0x1f))
-
-		// fmt.Printf("Temperature = %f degC\n", Temperature)
-		// fmt.Printf("Humidity = %f %%\n", Humidity)
-		// fmt.Printf("AtmospherePressure = %f kPa\n", AtmospherePressure)
-
-		// fmt.Printf("BatteryVoltage = %f V\n", BatteryVoltage)
-		// fmt.Printf("TxPower = %f dBm\n", TxPower)
-
-		// fmt.Printf("MAC %x\n", rawData.MacAddress)
+		var TxPower = -40 + 2*(float64(rawData.PowerInfo&0x1f))
 
 		for _, sensor := range Sensors {
 			if sensor.MacAddress == rawData.MacAddress {
-				fmt.Printf("Got data from %s\n", sensor.Location)
+				if *verbose {
+					fmt.Printf("Got data from %s\n", sensor.Location)
+					fmt.Printf("  Temperature = %f degC\n", Temperature)
+					fmt.Printf("  Humidity = %f %%\n", Humidity)
+					fmt.Printf("  AtmospherePressure = %f kPa\n", AtmospherePressure)
+					fmt.Printf("  BatteryVoltage = %f V\n", BatteryVoltage)
+					fmt.Printf("  TxPower = %f dBm\n", TxPower)
+					fmt.Printf("  RSSI = %f dBm\n", float64(rawData.PowerInfo&0x1f))
+				}
 				dp := DataPoint{
 					Bucket:             "Sensor data",
 					Location:           sensor.Location,
