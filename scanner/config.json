@@ -1,0 +1,30 @@
+{
+    "influxdb": {
+        "url": "http://my.server.org:30115/",
+        "token": "",
+        "org": "Sensor data",
+        "bucket": "My Haus!"
+    },
+    "sensors": [
+        {
+            "location": "Kitchen",
+            "address": "F6:8C:F2:8D:6E:A3"
+        },
+        {
+            "location": "Family room",
+            "address": "E0:E7:CD:59:5D:74"
+        },
+        {
+            "location": "Office",
+            "address": "D4:7A:AA:C9:5D:D6"
+        },
+        {
+            "location": "Master bedroom",
+            "address": "E6:99:94:26:C5:C3"
+        },
+        {
+            "location": "Garage",
+            "address": "D7:44:78:0F:A5:65"
+        }
+    ]
+}
