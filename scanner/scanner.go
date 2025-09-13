@@ -24,26 +24,19 @@ type DataPoint struct {
 	Time               time.Time `lp:"timestamp"`
 }
 
-// var Sensors = []Sensor{
-// 	{"Family room", [6]byte{0xE0, 0xE7, 0xCD, 0x59, 0x5D, 0x74}},
-// 	{"Office", [6]byte{0xD4, 0x7A, 0xAA, 0xC9, 0x5D, 0xD6}},
-// 	{"Master bedroom", [6]byte{0xE6, 0x99, 0x94, 0x26, 0xC5, 0xC3}},
-// 	{"Garage", [6]byte{0xD7, 0x44, 0x78, 0x0F, 0xA5, 0x65}},
-// 	{"Kitchen", [6]byte{0xF6, 0x8C, 0xF2, 0x8D, 0x6E, 0xA3}},
-// }
-
 func write(client *influxdb3.Client, point DataPoint) {
 	data := []any{point}
 	err := client.WriteData(context.Background(), data)
 	must("write data point", err)
 }
 
-var adapter = bluetooth.DefaultAdapter
-
 var Sensors = []Sensor{}
 
-var configFile = flag.String("c", "", "config file")
-var verbose = flag.Bool("verbose", false, "verbose")
+var (
+	// Command line flags
+	configFile = flag.String("c", "", "config file")
+	verbose    = flag.Bool("verbose", false, "verbose")
+)
 
 func main() {
 
@@ -57,27 +50,27 @@ func main() {
 
 	fmt.Printf("Config: %+v\n", config)
 
-	// Instantiate the client.
-	client, err := influxdb3.New(influxdb3.ClientConfig{
-		Host:         "http://influxdb:30115/",
-		Token:        "_BpHKWqFu03oSWHcxSUyM723DC7ZUoLubaAbp8wkZFEk_FDTF23hNpfrAyPg0I_yinLcDJSfYXrK97RdpL4qRA==",
-		Database:     "Sensor data",
-		Organization: "Loon's Nest",
+	// Instantiate the database client.
+	dbClient, err := influxdb3.New(influxdb3.ClientConfig{
+		Host:         config.InfluxDb.Url,
+		Token:        config.InfluxDb.Token,
+		Database:     config.InfluxDb.Bucket,
+		Organization: config.InfluxDb.Org,
 	})
 	must("connect to database", err)
 
+	// Instantiate the BLE adapter.
+	var controller = bluetooth.NewAdapter(config.Bluetooth.Controller)
+
 	// Enable BLE interface.
-	must("enable BLE stack", adapter.Enable())
+	must("enable BLE stack", controller.Enable())
 
 	// Start scanning.
 	println("scanning...")
-	err = adapter.Scan(func(adapter *bluetooth.Adapter, device bluetooth.ScanResult) {
-		// println("found device:", device.Address.String(), device.RSSI, device.LocalName())
+	err = controller.Scan(func(adapter *bluetooth.Adapter, device bluetooth.ScanResult) {
 		for _, value := range device.AdvertisementPayload.ManufacturerData() {
 			if value.CompanyID == 1177 {
-				// fmt.Printf("%d\n", value.CompanyID)
-				// fmt.Printf("%x\n", value.Data)
-				parse_ruuvi_data(client, value.Data)
+				parse_ruuvi_data(dbClient, value.Data)
 			}
 		}
 	})

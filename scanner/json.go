@@ -7,11 +7,16 @@ import (
 )
 
 type Config struct {
-	InfluxDb InfluxDb `json:"influxdb"`
-	Sensors  []Sensor `json:"sensors"`
+	InfluxDb  InfluxDb  `json:"influxdb"`
+	Bluetooth Bluetooth `json:"bluetooth"`
+	Sensors   []Sensor  `json:"sensors"`
 }
 
 type MacAddress [6]byte
+
+type Bluetooth struct {
+	Controller string `json:"controller"`
+}
 
 type Sensor struct {
 	Location   string     `json:"location"`
@@ -61,19 +66,3 @@ func LoadJsonConfig(filename string) (Config, error) {
 
 	return config, nil
 }
-
-// func main() {
-// 	body, err := os.ReadFile("config.json")
-// 	if err != nil {
-// 		fmt.Println("Error reading file:", err)
-// 		return
-// 	}
-
-// 	var config Config
-// 	if err := json.Unmarshal(body, &config); err != nil {
-// 		fmt.Println("Error decoding JSON from file:", err)
-// 		return
-// 	}
-
-// 	fmt.Printf("Config: %+v\n", config)
-// }
